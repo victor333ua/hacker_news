@@ -1,0 +1,35 @@
+ type Query {
+  feed(filter: String, skip: Int, take: Int, cursor: DateTime): [Link],
+  user(id: Int!): User,
+  allUsers: [User]
+}
+
+type Mutation {
+  createPost(description: String!, url: String!): Link
+  deletePost(id: Int!): User
+  signup(email: String!, password: String!, name: String!): AuthPayload
+  login(email: String!, password: String!): AuthPayload
+}
+
+type Link {
+  id: Int!
+  createdAt: DateTime!
+  description: String!
+  url: String!
+  postedById: Int!
+  postedBy: User!
+}
+
+type User {
+  id:        Int!
+  name:      String!
+  email:     String!
+  links:     [Link]
+}
+
+type AuthPayload {
+  user: User
+  token: String
+}
+
+scalar DateTime
