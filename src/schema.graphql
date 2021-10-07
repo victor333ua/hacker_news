@@ -11,6 +11,10 @@ type Mutation {
   login(email: String!, password: String!): AuthPayload
 }
 
+type Subscription {
+  postCreated: Link
+}
+
 type Link {
   id: Int!
   createdAt: DateTime!

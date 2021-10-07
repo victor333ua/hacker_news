@@ -32,7 +32,7 @@ export const postsResolver = {
             const newPost = context.prisma.link.create({
                 data: { ...args, postedById: context.userId }
             });
-            // context.pubsub.publish("NEW_LINK", newLink);
+            context.pubsub.publish("NEW_POST", { postCreated: newPost })
             return newPost;
         },
         async deletePost(_: any, args: any, context: MyContext) {
@@ -40,11 +40,12 @@ export const postsResolver = {
             return context.prisma.link.delete({ where: { id: args.id }});
         }
     },
-    // Subscription: {
-    //     newPostSubscribe(_, args, context) {
-    //         return context.pubsub.asyncIterator("NEW_POST");
-    //     }
-    // },
+    Subscription: {
+        postCreated: {
+            subscribe: (_: any, __: any, context: MyContext) => 
+                context.pubsub.asyncIterator("NEW_POST")
+        }
+    },
 
     Link: {
         async postedBy(parent: Link, _: any, context: MyContext) {
