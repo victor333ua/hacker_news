@@ -3,78 +3,95 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
-import { usersResolver } from './resolvers/users.js';
-import { postsResolver } from './resolvers/posts.js';
+import { usersResolver } from './resolvers/users';
+import { postsResolver } from './resolvers/posts';
 import { merge } from 'lodash';
-import { getUserId } from './utils/getUserId.js';
+import { getUserId } from './utils/getUserId';
 import { makeExecutableSchema } from '@graphql-tools/schema';
+import { PubSub } from 'graphql-subscriptions';
 import ws from 'ws';
 import { useServer } from 'graphql-ws/lib/use/ws';
-import { execute, subscribe } from 'graphql';
-import { PubSub } from 'graphql-subscriptions';
+import cors from 'cors';
+import { createServer } from 'http';
+import { MyContext } from './types';
+import { getUserIdFromCtx } from './utils/getUserIdFromWsCtx';
 
-const pubsub = new PubSub();
+export const pubsub = new PubSub();
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient(
+  // { log: ['query'] }
+);
 
-const startApolloServer = async () => {
-  
+const init = async () => {
+
   const app = express();
-  
+  app.use(
+    cors({
+        origin: process.env.CORS_ORIGIN,
+        credentials: true,
+    })
+  );
+
+  const httpServer = createServer(app);
+ 
   const typeDefs = fs.readFileSync(
     path.join(path.resolve(), 'src/schema.graphql'),
     'utf8'
   );
   const resolvers = merge(usersResolver, postsResolver);
   const schema = makeExecutableSchema({ typeDefs, resolvers });
-  
+
   const apolloServer = new ApolloServer({
       schema,     
-      context: ({ req }) => {
+      context: ({ req }): MyContext => {
+        const userId = req && req.headers.authorization
+        ? getUserId(req.headers.authorization)
+        : null;
         return {
           req,
           prisma,
           pubsub,
-          userId: req && req.headers.authorization
-            ? getUserId(req)
-            : null
+          userId
         };
-      }
+      },
   });
 
   await apolloServer.start();
-  apolloServer.applyMiddleware({ app });
+  apolloServer.applyMiddleware({ app, cors: false });
 
-  const server = app.listen(process.env.PORT, () => {
-      const wsServer = new ws.Server({
-        server,
-        path: '/graphql',
-      });
-      useServer({ 
-        schema,
-        execute,
-        subscribe,
-        onConnect: (ctx) => {
-            console.log('Connect');
-        },
-        onSubscribe: (ctx, msg) => {
-            console.log('Subscribe');
-        },
-        onNext: (ctx, msg, args, result) => {
-            console.debug('Next');
-        },
-        onError: (ctx, msg, errors) => {
-            console.error('Error');
-        },
-        onComplete: (ctx, msg) => {
-            console.log('Complete');
-        }, 
-      }, wsServer); 
-      console.log(`server started on localhost:${process.env.PORT}`);
+  httpServer.listen(process.env.PORT, () => {
+    const wsServer = new ws.Server({
+      server: httpServer,
+      path: '/graphql',
+    });
+    useServer({ 
+      schema,
+      context: (ctx) => ({ prisma, pubsub, userId: getUserIdFromCtx(ctx) }),
+      onConnect: (ctx) => {
+          console.log('Connect');
+      },
+      onDisconnect: (ctx) => {
+        console.log('Disconnect');
+      },
+      onSubscribe: (ctx, msg) => {
+          console.log('Subscribe');
+      },     
+      onNext: (ctx, msg, args, result) => {
+        // console.debug('Next', { ctx, msg, args, result });
+      },
+      onError: (ctx, msg, errors) => {
+          console.error('Error');
+      },
+      onComplete: (ctx, msg) => {
+          console.log('Complete');
+      }, 
+    }, wsServer); 
+    console.log(`server started on localhost:${process.env.PORT}`);
   })  
 };
 
-startApolloServer()
+init()
   .catch((err) => {
     console.error(err);
 });
+

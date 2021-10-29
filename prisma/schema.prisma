@@ -13,7 +13,8 @@ model Link {
   description String
   url         String
   postedById  Int
-  postedBy    User    @relation(fields: [postedById], references: [id])
+  postedBy    User    @relation(fields: [postedById], references: [id], onDelete: Cascade)
+  updoots     Updoot[]
 }
 
 model User {
@@ -22,4 +23,16 @@ model User {
   email    String @unique
   password String
   links    Link[]
+  updoots  Updoot[]
+  lastTime DateTime? 
+}
+
+model Updoot {
+  postId  Int      
+  post    Link  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId  Int   
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  value   Int
+
+  @@id([postId, userId])
 }

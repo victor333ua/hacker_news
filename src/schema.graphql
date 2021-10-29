@@ -1,39 +1,79 @@
  type Query {
-  feed(filter: String, skip: Int, take: Int, cursor: DateTime): [Link],
-  user(id: Int!): User,
-  allUsers: [User]
+  feed(filter: String, skip: Int, take: Int, cursor: String): LinksPayload!,
+  user(id: Int!): User!,
+  allUsers: [User!]!,
+  me: User!
 }
 
 type Mutation {
-  createPost(description: String!, url: String!): Link
-  deletePost(id: Int!): User
-  signup(email: String!, password: String!, name: String!): AuthPayload
-  login(email: String!, password: String!): AuthPayload
+  createPost(description: String!, url: String!): Link!
+  deletePost(id: Int!): Link!
+  signup(email: String!, password: String!, name: String!): AuthPayload!
+  login(email: String!, password: String!): AuthPayload!
+  vote(value: Int!, postId: Int!): Boolean!
+  logout: Boolean!
 }
 
 type Subscription {
-  postCreated: Link
+  postCreated: PostCreatedPayload!
+  postDeleted: PostDeletedPayload!
+  postVoted: VotePayload!
+  userIsOnline: IsOnlinePayload!
 }
 
 type Link {
   id: Int!
-  createdAt: DateTime!
+  createdAt: String!
   description: String!
   url: String!
   postedById: Int!
   postedBy: User!
+  votesUp: Int!
+  votesDown: Int!
+  voteValue: Int
 }
 
 type User {
-  id:        Int!
-  name:      String!
-  email:     String!
-  links:     [Link]
+  id:    Int!
+  name:  String!
+  email: String!
+  links: [Link!]!
+  lastTime: String
+}
+
+type LinksPayload {
+  posts: [Link!]!
+  hasMore: Boolean!
 }
 
 type AuthPayload {
-  user: User
-  token: String
+  user: User!
+  token: String!
 }
 
-scalar DateTime
+type Updoot {
+  postId: Int!
+  userId: Int!
+  value:  Int!
+}
+
+type VotePayload {
+  value: Int!
+  postId: Int!
+  userId: Int!
+}
+
+type PostCreatedPayload {
+  newPost: Link!
+  userId: Int!
+}
+
+type PostDeletedPayload {
+  postId: Int!
+  userId: Int!
+}
+
+type IsOnlinePayload {
+  userId: Int!
+  lastTime: String
+}

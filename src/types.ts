@@ -3,7 +3,7 @@ import { Request } from "express";
 import { PubSub } from "graphql-subscriptions";
 
 export type MyContext = {
-    req: Request;
+    req?: Request;
     prisma: PrismaClient;
     userId: number | null;
     pubsub: PubSub;
