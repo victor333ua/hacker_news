@@ -11,7 +11,8 @@ type Mutation {
   signup(email: String!, password: String!, name: String!): AuthPayload!
   login(email: String!, password: String!): AuthPayload!
   vote(value: Int!, postId: Int!): Boolean!
-  logout: Boolean!
+  logout: Boolean!,
+  logWithValidToken: Boolean!
 }
 
 type Subscription {

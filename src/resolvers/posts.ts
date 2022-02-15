@@ -2,7 +2,7 @@ import { Link, Prisma } from ".prisma/client";
 import { isAuth } from "../utils/isAuth";
 import { MyContext } from "../types";
 import { DELETE_POST, NEW_POST, VOTE_POST } from "../subscriptionsConst";
-import { withFilter } from "graphql-subscriptions";
+import { publishWithoutMe } from './../utils/publishWithoutMe';
 
 export const postsResolver = {
     Query: {
@@ -16,7 +16,10 @@ export const postsResolver = {
             }
             : {};
 
-            if (args.cursor)  where = { ...where, createdAt: { lt: args.cursor }};
+            if (args.cursor) {
+                const date = new Date(parseInt(args.cursor));
+                where = { ...where, createdAt: { lt: date }};
+            }
            
             const orderBy: any = { createdAt: 'desc' };
             const take = Number(args.take);
@@ -40,7 +43,8 @@ export const postsResolver = {
             isAuth(context);
             const newPost = await context.prisma.link.create({
                 data: { ...args, postedById: context.userId }
-            });        
+            });  
+// pass userId from http context to compare with ws clients id       
             await context.pubsub.publish(
                 NEW_POST,
                 { postCreated: { newPost, userId: context.userId }}
@@ -102,39 +106,13 @@ export const postsResolver = {
 
     Subscription: {
         postCreated: {
-            subscribe: withFilter(
-                (_: any, __: any, context) => 
-                    context.pubsub.asyncIterator(NEW_POST),
-                (payload: any, __: any, context) => {
-                    const userId = context.userId;
-                    const  userIdFromHttp = payload.postCreated.userId;
-                    return userIdFromHttp !== userId;                                
-                }
-            )
+            subscribe: publishWithoutMe(NEW_POST)
         },
         postDeleted: {
-            subscribe: withFilter(
-                (_: any, __: any, context) =>         
-                    context.pubsub.asyncIterator(DELETE_POST),
-                (payload: any, __: any, context) => {
-                    const userId = context.userId;
-                    const  userIdFromHttp = payload.postDeleted.userId;
-                    return userIdFromHttp !== userId; 
-                }
-            )
+            subscribe: publishWithoutMe(DELETE_POST)
         },
         postVoted: {
-            subscribe: withFilter(
-                (_: any, __: any, context) => context.pubsub.asyncIterator(VOTE_POST),
-                (payload: any, __: any, context) => {
-// here context from ws, has been made for every subscriber
-                    const userId = context.userId;
-                    const  userIdFromHttp = payload.postVoted.userId;
-                    // console.log('userId, userIdFromHttp = ',
-                    //     [userId, userIdFromHttp]);
-                    return userIdFromHttp !== userId;         
-                }
-            ) 
+            subscribe: publishWithoutMe(VOTE_POST)
         }
     },
 

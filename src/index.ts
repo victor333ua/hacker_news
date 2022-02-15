@@ -8,6 +8,7 @@ import { postsResolver } from './resolvers/posts';
 import { merge } from 'lodash';
 import { getUserId } from './utils/getUserId';
 import { makeExecutableSchema } from '@graphql-tools/schema';
+//import { composeResolvers } from '@graphql-tools/resolvers-composition';
 import { PubSub } from 'graphql-subscriptions';
 import ws from 'ws';
 import { useServer } from 'graphql-ws/lib/use/ws';
@@ -27,7 +28,10 @@ const init = async () => {
   const app = express();
   app.use(
     cors({
-        origin: process.env.CORS_ORIGIN,
+        origin: [
+          process.env.CORS_ORIGIN as string,
+          "https://studio.apollographql.com"
+        ],
         credentials: true,
     })
   );
@@ -68,22 +72,26 @@ const init = async () => {
       schema,
       context: (ctx) => ({ prisma, pubsub, userId: getUserIdFromCtx(ctx) }),
       onConnect: (ctx) => {
-          console.log('Connect');
+        // console.log('Connect');
       },
       onDisconnect: (ctx) => {
-        console.log('Disconnect');
+        // console.log('Disconnect');
       },
       onSubscribe: (ctx, msg) => {
-          console.log('Subscribe');
+        // console.log('Subscribe');
       },     
       onNext: (ctx, msg, args, result) => {
         // console.debug('Next', { ctx, msg, args, result });
+        // const objPayload: any = Object.values(msg.payload.data as {})[0];
+        // console.debug('Next: payload',  objPayload);
+        // console.debug('Next: userId', objPayload.userId);
+        // we don't have userId here???
       },
       onError: (ctx, msg, errors) => {
           console.error('Error');
       },
       onComplete: (ctx, msg) => {
-          console.log('Complete');
+          // console.log('Complete');
       }, 
     }, wsServer); 
     console.log(`server started on localhost:${process.env.PORT}`);
