@@ -2,7 +2,7 @@ import { User } from '.prisma/client';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 
 
-export const createToken = (user: User) => {
+export const createToken = (user: User | { id: number }) => {
     const token = jwt.sign(
         { userId: user.id },
         process.env.TOKEN_SECRET as string,

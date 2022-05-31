@@ -6,7 +6,7 @@ import { MyContext } from '../types';
 import { createToken } from '../utils/token';
 import { publishWithoutMe } from '../utils/publishWithoutMe';
 
-const onlinePublish = async (context: MyContext, userId: number | null, currentDate: Date | null) => {
+export const onlinePublish = async (context: MyContext, userId: number | null, currentDate: Date | null) => {
     if (userId) {
         try {
             await context.prisma.user.update({
@@ -49,7 +49,8 @@ export const usersResolver = {
             const user = await context.prisma.user.create({
                 data: {...args, password}
             });
-           return createToken(user);             
+            await onlinePublish(context, user.id, null);
+            return createToken(user);             
         },
 
         async login(_: any, args: any, context: MyContext) {
@@ -58,6 +59,9 @@ export const usersResolver = {
             });
             if (!user) throw new Error(
                 JSON.stringify({email: 'not such user'}));
+
+            if (!user.password) throw new Error(
+                JSON.stringify({email: 'this user was authorized through social media'}));
 
             const res = await bcrypt.compare(args.password, user.password);
             if(!res) throw new Error(JSON.stringify({password: 'invalid password'}));

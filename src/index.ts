@@ -16,16 +16,22 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { MyContext } from './types';
 import { getUserIdFromCtx } from './utils/getUserIdFromWsCtx';
+import { __prod__ } from './constants';
+import passport from 'passport';
+import './oauth2/passport';
+import authRoute from './oauth2/routes/auth';
+import cookieParser from 'cookie-parser';
 
 export const pubsub = new PubSub();
 
-const prisma = new PrismaClient(
+export const prisma = new PrismaClient(
   // { log: ['query'] }
-);
+)
 
 const init = async () => {
 
   const app = express();
+ 
   app.use(
     cors({
         origin: [
@@ -35,9 +41,16 @@ const init = async () => {
         credentials: true,
     })
   );
+  app.use(cookieParser());
+  app.use(passport.initialize());
+  app.use('/oauth2', authRoute);
+  // app.use((err: any, _: any, res: any, __: any) => {
+  //   if (err.errorCode) res.status(500).send(err.message);
+  //   res.status(401).send(err.message);
+  // });
 
-  const httpServer = createServer(app);
- 
+// --------------------------------------------------------
+// ----- Apollo Server ------------------------------------
   const typeDefs = fs.readFileSync(
     path.join(path.resolve(), 'src/schema.graphql'),
     'utf8'
@@ -61,7 +74,9 @@ const init = async () => {
   });
 
   await apolloServer.start();
+  const httpServer = createServer(app);
   apolloServer.applyMiddleware({ app, cors: false });
+// ---------------------------------------------------------
 
   httpServer.listen(process.env.PORT, () => {
     const wsServer = new ws.Server({
@@ -72,10 +87,10 @@ const init = async () => {
       schema,
       context: (ctx) => ({ prisma, pubsub, userId: getUserIdFromCtx(ctx) }),
       onConnect: (ctx) => {
-        // console.log('Connect');
+        console.log('Connect');
       },
       onDisconnect: (ctx) => {
-        // console.log('Disconnect');
+        console.log('Disconnect');
       },
       onSubscribe: (ctx, msg) => {
         // console.log('Subscribe');

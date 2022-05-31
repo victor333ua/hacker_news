@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { Request } from "express";
 import { PubSub } from "graphql-subscriptions";
 
@@ -15,11 +15,16 @@ declare module 'jsonwebtoken' {
     }
 };
 
-// declare module '@prisma/client' {
-//     namespace Prisma {
-//         type LinkWhereUniqueInput = {
-//             createdAt: Date;
+declare module 'express-session' {
+    interface SessionData {
+      messages: string[];
+    }
+};
+
+// declare global {
+//     namespace Express {      
+//         interface Request {
+//             federatedUser: {id: number};
 //         }
 //     }
-// }
-
+// };

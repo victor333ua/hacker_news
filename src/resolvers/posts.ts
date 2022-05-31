@@ -141,14 +141,14 @@ export const postsResolver = {
             return count ? count : 0; 
         },
         async voteValue(parent: Link, _: any, context: MyContext) {
-            if (!context.userId) return null;
+            if (!context.userId) return 0;
             const updoot = await context.prisma.updoot.findUnique({
                 where: {
                     postId_userId: { postId: parent.id, userId: context.userId as number }
                 },
                 select: { value: true }
             });
-            return updoot ? updoot.value : null;
+            return updoot ? updoot.value : 0;
         }
     }
 }

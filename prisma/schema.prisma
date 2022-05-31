@@ -19,12 +19,13 @@ model Link {
 
 model User {
   id       Int    @id @default(autoincrement())
-  name     String
+  name     String?
   email    String @unique
-  password String
+  password String?
   links    Link[]
   updoots  Updoot[]
   lastTime DateTime? 
+  credentials FederatedCredential[]
 }
 
 model Updoot {
@@ -35,4 +36,13 @@ model Updoot {
   value   Int
 
   @@id([postId, userId])
+}
+
+model FederatedCredential {
+  userId Int
+  user User @relation(fields: userId, references: id, onDelete: Cascade)
+  provider String
+  socialId String
+
+  @@id([provider, socialId])
 }
