@@ -11,7 +11,6 @@ export const postsResolver = {
             ? {
                 OR: [
                     { description: { contains: args.filter } },
-                    { url: { contains: args.filter } },
                 ],
             }
             : {};
@@ -41,14 +40,32 @@ export const postsResolver = {
     Mutation: {
         async createPost(_: any, args: any, context: MyContext) {
             isAuth(context);
-            const newPost = await context.prisma.link.create({
-                data: { ...args, postedById: context.userId }
-            });  
-// pass userId from http context to compare with ws clients id       
-            await context.pubsub.publish(
-                NEW_POST,
-                { postCreated: { newPost, userId: context.userId }}
-            );           
+            let newPost;
+            try {
+                newPost = await context.prisma.link.create({
+                    data: {
+                        ...args, 
+                        // description: args.description,
+                        // musicUrl: args.musicUrl,
+                        // imageLink: args.imageLink,
+                        // deleteHash: args.deleteHash,
+                        // lat: args.lat,
+                        // lng: args.lng,
+                        postedById: context.userId as number }
+                }); 
+            } catch (e: any) {
+                console.log('createPostError: ', e.message);
+                throw new Error(`error creating post: ${e.message}`);
+            };
+            try { 
+                await context.pubsub.publish(
+                    NEW_POST,
+                    { postCreated: { newPost, userId: context.userId }}
+                );
+            } catch (e: any) {
+                console.log('createPostErrorPublish: ', e.message);
+                throw new Error(`error publishing new post: ${e.message}`);
+            }            
             return newPost;
         },
         async deletePost(_: any, args: any, context: MyContext) {

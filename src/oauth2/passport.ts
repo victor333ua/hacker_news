@@ -1,55 +1,74 @@
-import passport from 'passport'
+import passport, { Profile } from 'passport'
+import { Strategy as GitHubStrategy } from 'passport-github2';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
-import { prisma } from '../index'
+import { prisma } from '../index';
+
+const verify = async (accessToken: string, refreshToken: string, 
+  profile: Profile, done: any) => {
+  try {
+    const socialUser = await prisma.federatedCredential.findFirst({
+      where: { socialId: profile.id, provider: profile.provider },
+      // include: { user: true }
+    });
+    if (socialUser) {
+      done(null, { id: socialUser.userId })
+    }
+    else {
+      if (!profile.emails) {
+        done(null, false, { message: "user doesn't have email"});
+        return;
+      }  
+    // check if any of profile's email exist in reg users in db  
+      const promises = profile.emails!.map(async email => {
+        return !!await prisma.user.findUnique({
+          where: { email: email.value }
+        });
+      });
+      const exists = await Promise.all(promises);
+      const exist = exists.some(bool => bool);              
+      if (exist) done(null, false, { message: 'user with such email already exist' });
+      else {
+        const { id } = await prisma.user.create({
+          data: { 
+            email: profile.emails![0].value,
+            name: profile.name?.givenName,
+            imageLink: profile.photos?.at(0)?.value
+          }
+        });
+        await prisma.federatedCredential.create({
+          data: { userId: id, provider: profile.provider, socialId: profile.id }
+        });
+        done(null, { id });
+      }
+    }
+  } catch (err: any) {
+      done(err);
+  }
+}
 
 passport.use(
     new GoogleStrategy(
       {
         clientID: process.env.GOOGLE_CLIENT_ID as string,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-        callbackURL: "/oauth2/google/callback",
+        callbackURL: process.env.GOOGLE_URI_REDIRECT as string,
       },
-      async function (accessToken, refreshToken, profile, done) {
-        try {
-          const socialUser = await prisma.federatedCredential.findFirst({
-            where: { socialId: profile.id, provider: profile.provider },
-            // include: { user: true }
-          });
-          if (socialUser) {
-            done(null, { id: socialUser.userId })
-          }
-          else {
-            if (!profile.emails) {
-              done(null, false, { message: "user doesn't have email"});
-            }  
-          // check if any of profile's email exist in reg users in db  
-            const promises = profile.emails!.map(async email => {
-              return !!await prisma.user.findUnique({
-                where: { email: email.value }
-              });
-            });
-            const exists = await Promise.all(promises);
-            const exist = exists.some(bool => bool);              
-            if (exist) done(null, false, { message: 'user with such email already exist' });
-            else {
-              const { id } = await prisma.user.create({
-                data: { 
-                  email: profile.emails![0].value,
-                  name: profile.name?.givenName
-                }
-              });
-              await prisma.federatedCredential.create({
-                data: { userId: id, provider: profile.provider, socialId: profile.id }
-              });
-              done(null, { id });
-            }
-          }
-        } catch (err: any) {
-            done(err);
-        }
+      (accessToken, refreshToken, profile, done) => {
+        (async () => await verify(accessToken, refreshToken, profile, done))();
       }
-    )
-);
+  ));
+    
+passport.use(
+  new GitHubStrategy(
+    {
+      clientID: process.env.GITHUB_CLIENT_ID as string,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
+      callbackURL: process.env.GITHUB_URI_REDIRECT as string
+    },
+    (accessToken: any, refreshToken: any, profile: any, done: any) => {
+      (async () => await verify(accessToken, refreshToken, profile, done))();
+    }
+));
 
 // Configure Passport authenticated session persistence.
   //

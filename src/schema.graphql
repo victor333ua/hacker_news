@@ -2,17 +2,19 @@
   feed(filter: String, skip: Int, take: Int, cursor: String): LinksPayload!,
   user(id: Int!): User!,
   allUsers: [User!]!,
-  me: User!
+  me: User!,
+  imgur: ImgurPayload!
 }
 
 type Mutation {
-  createPost(description: String!, url: String!): Link!
+  createPost(description: String!, musicUrl: String, imageLink: String, deleteHash: String, lat: Float, lng: Float): Link!
   deletePost(id: Int!): Link!
-  signup(email: String!, password: String!, name: String!): AuthPayload!
+  signup(email: String!, password: String!): AuthPayload!
   login(email: String!, password: String!): AuthPayload!
   vote(value: Int!, postId: Int!): Boolean!
   logout: Boolean!,
-  logWithValidToken: Boolean!
+  logWithValidToken: Boolean!,
+  changeAvatar(imageLink: String!, deletehash: String!): Boolean!
 }
 
 type Subscription {
@@ -26,19 +28,25 @@ type Link {
   id: Int!
   createdAt: String!
   description: String!
-  url: String!
+  musicUrl: String
   postedById: Int!
   postedBy: User!
   votesUp: Int!
   votesDown: Int!
-  voteValue: Int
+  voteValue: Int!
+  imageLink: String
+  deleteHash: String
+  lat: Float
+  lng: Float
 }
 
 type User {
   id:    Int!
-  name:  String!
+  name:  String
   email: String!
-  links: [Link!]!
+  imageLink: String
+  deletehash: String
+  links: [Link]
   lastTime: String
 }
 
@@ -77,4 +85,10 @@ type PostDeletedPayload {
 type IsOnlinePayload {
   userId: Int!
   lastTime: String
+}
+
+type ImgurPayload {
+  isAuthed: Boolean!
+  clientId: String!
+  accessToken: String!
 }

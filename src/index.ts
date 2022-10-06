@@ -16,39 +16,38 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { MyContext } from './types';
 import { getUserIdFromCtx } from './utils/getUserIdFromWsCtx';
-import { __prod__ } from './constants';
 import passport from 'passport';
 import './oauth2/passport';
 import authRoute from './oauth2/routes/auth';
-import cookieParser from 'cookie-parser';
+// import cookieParser from 'cookie-parser';
 
 export const pubsub = new PubSub();
-
 export const prisma = new PrismaClient(
   // { log: ['query'] }
-)
+);
 
 const init = async () => {
 
   const app = express();
- 
-  app.use(
-    cors({
-        origin: [
-          process.env.CORS_ORIGIN as string,
-          "https://studio.apollographql.com"
-        ],
-        credentials: true,
-    })
-  );
-  app.use(cookieParser());
+
+  const corsOptions = {
+    origin:[ 
+      process.env.CORS_ORIGIN as string,
+      "https://studio.apollographql.com",
+    ],
+    credentials: true,
+  }
+// necessary for oauth2 login 
+  app.use(cors(corsOptions));
   app.use(passport.initialize());
-  app.use('/oauth2', authRoute);
+  app.use('/', authRoute);
+
+  // app.use(cookieParser());
   // app.use((err: any, _: any, res: any, __: any) => {
   //   if (err.errorCode) res.status(500).send(err.message);
   //   res.status(401).send(err.message);
   // });
-
+  // app.set("trust proxy", 1);
 // --------------------------------------------------------
 // ----- Apollo Server ------------------------------------
   const typeDefs = fs.readFileSync(
@@ -74,14 +73,17 @@ const init = async () => {
   });
 
   await apolloServer.start();
-  const httpServer = createServer(app);
-  apolloServer.applyMiddleware({ app, cors: false });
+  apolloServer.applyMiddleware({ 
+    app, 
+    cors: corsOptions, // !once more here, express cors not sufficient
+    path: '/graphql'
+  });
 // ---------------------------------------------------------
-
+  const httpServer = createServer(app);
   httpServer.listen(process.env.PORT, () => {
     const wsServer = new ws.Server({
       server: httpServer,
-      path: '/graphql',
+      path: '/ws',
     });
     useServer({ 
       schema,

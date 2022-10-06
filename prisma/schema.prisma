@@ -11,7 +11,11 @@ model Link {
   id          Int      @id @default(autoincrement())
   createdAt   DateTime @default(now())
   description String
-  url         String
+  imageLink   String?
+  deleteHash  String?
+  musicUrl    String?
+  lat         Float?
+  lng         Float?
   postedById  Int
   postedBy    User    @relation(fields: [postedById], references: [id], onDelete: Cascade)
   updoots     Updoot[]
@@ -22,6 +26,8 @@ model User {
   name     String?
   email    String @unique
   password String?
+  imageLink String?
+  deletehash String?
   links    Link[]
   updoots  Updoot[]
   lastTime DateTime? 

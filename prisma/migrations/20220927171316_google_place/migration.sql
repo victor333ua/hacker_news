@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Link" ADD COLUMN "lat" REAL;
+ALTER TABLE "Link" ADD COLUMN "lng" REAL;
