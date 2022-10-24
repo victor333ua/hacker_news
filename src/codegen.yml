@@ -1,0 +1,15 @@
+schema: ./src/modules/**/*.graphql
+generates:
+  ./src/modules:
+    preset: graphql-modules
+    config: 
+      contextType: 'GraphQLModules.Context'
+      mappers:
+        User: node_modules/.prisma/client/index#User as UserModel
+        Link: node_modules/.prisma/client/index#Link as LinkModel
+    presetConfig:
+      baseTypesPath: ../generated-types/graphql.ts # Where to create the complete schema types
+      filename: generated-types/module-types.ts # Where to create each module types
+    plugins:
+      - typescript
+      - typescript-resolvers

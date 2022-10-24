@@ -1,13 +1,20 @@
-import { User } from '.prisma/client';
 import bcrypt from 'bcrypt';
-import { IS_ONLINE_USER } from '../subscriptionsConst';
-import { MyContext } from '../types';
-import { createToken } from '../utils/token';
-import { publishWithoutMe } from '../utils/publishWithoutMe';
-import { isAuth } from '../utils/isAuth';
-import { getImgurData } from './../services/imgurService';
+import { IS_ONLINE_USER } from '../../subscriptionsConst';
+import { createToken } from '../../utils/token';
+import { publishWithoutMe } from '../../utils/publishWithoutMe';
+import { isAuth } from '../../utils/isAuth';
+import { getImgurData } from '../../services/imgurService';
+import { createModule } from 'graphql-modules';
+import { UserModule } from './generated-types/module-types';
+import { join, resolve } from 'path';
+import { loadFilesSync } from '@graphql-tools/load-files';
+import { LinkasLinkModel } from 'node_modules/.prisma/client/index';
 
-export const onlinePublish = async (context: MyContext, userId: number | null, currentDate: Date | null) => {
+export const onlinePublish = async (
+    context: GraphQLModules.GlobalContext,
+    userId: number | null, 
+    currentDate: Date | null) => {
+
     if (userId) {
         try {
             await context.prisma.user.update({
@@ -23,32 +30,41 @@ export const onlinePublish = async (context: MyContext, userId: number | null, c
     };           
     context.pubsub.publish(IS_ONLINE_USER, { userIsOnline: {
         userId,
-        lastTime: currentDate 
+        lastTime: currentDate ? currentDate.getTime() : null
     }});
 };
 
-export const usersResolver = {
+const resolvers: UserModule.Resolvers = {
     Query: {
-        async user(_: any, args: { id: number}, context: MyContext){
-            return context.prisma.user.findUnique({
+        async user(_, args, context){
+            const user = await context.prisma.user.findUnique({
                 where: {
                     id: args.id
-                }
+                },
             });
+            if (!user) throw Error('no such user');
+            return user;
         },
-        async allUsers(_: any, __: any, context: MyContext) {
+        async allUsers(_, __, context) {
             return context.prisma.user.findMany();
         },
-        async me(_: any, __: any, context: MyContext) {  
+        async me(_, __, context) {  
             isAuth(context);
             return context.prisma.user.findFirst({ where: { id: context.userId as number }})
         },
         async imgur() {
            return getImgurData();
+        },
+        async getPosts(_, args, context){
+            return context.prisma.link.findMany({
+                where: {
+                    postedById: args.userId
+                }
+            })
         }
     },
     Mutation: {
-        async signup(_: any, args: any, context: MyContext) {
+        async signup(_, args, context) {
             let user = await context.prisma.user.findUnique({
                 where: { email: args.email }
             });
@@ -63,7 +79,7 @@ export const usersResolver = {
             return { token: createToken(user.id), user};             
         },
 
-        async login(_: any, args: any, context: MyContext) {
+        async login(_, args, context) {
             const user = await context.prisma.user.findUnique({
                 where: { email: args.email }
             });
@@ -80,19 +96,19 @@ export const usersResolver = {
             return { token: createToken(user.id), user};    
         },
 
-        async logout(_: any, __: any, context: MyContext) {
+        async logout(_, __, context) {
             isAuth(context);
             await onlinePublish(context, context.userId as number, new Date());
             return true;
         },
 
-        async logWithValidToken(_: any, __: any, context: MyContext) {
+        async logWithValidToken(_, __, context) {
             isAuth(context);
             await onlinePublish(context, context.userId, null);
             return true;
         },
 
-        async changeAvatar(_: any, args: {imageLink: string, deletehash: string}, context: MyContext) {
+        async changeAvatar(_, args, context) {
             isAuth(context);
             try {
                 await context.prisma.user.update({
@@ -111,15 +127,24 @@ export const usersResolver = {
     Subscription: {
         userIsOnline: {
             subscribe: publishWithoutMe(IS_ONLINE_USER)
-        },
+        }
     },
     User: {
-        async links(parent: User, _: any, context: MyContext) {
+        async links(parent, _, context) {
             return context.prisma.link.findMany({
                 where: {
                     postedById: parent.id
                 }
             })
-        }
+        } 
     }
 };
+
+export const usersModule = createModule({
+    id: 'users-module',
+    dirname: __dirname,
+    typeDefs: loadFilesSync(
+        join(resolve(), 'src/modules/user/user.graphql'),
+    ),
+    resolvers
+});

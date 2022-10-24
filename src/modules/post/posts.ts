@@ -1,12 +1,16 @@
-import { Link, Prisma } from ".prisma/client";
-import { isAuth } from "../utils/isAuth";
-import { MyContext } from "../types";
-import { DELETE_POST, NEW_POST, VOTE_POST } from "../subscriptionsConst";
-import { publishWithoutMe } from './../utils/publishWithoutMe';
+import { Prisma } from ".prisma/client";
+import { isAuth } from "../../utils/isAuth";
+import { DELETE_POST, NEW_POST, VOTE_POST } from "../../subscriptionsConst";
+import { publishWithoutMe } from '../../utils/publishWithoutMe';
 
-export const postsResolver = {
+import { createModule } from 'graphql-modules';
+import { PostModule } from './generated-types/module-types';
+import { loadFilesSync } from "@graphql-tools/load-files";
+import { join, resolve } from "path";
+ 
+const resolvers: PostModule.Resolvers = {
     Query: {
-        async feed(_: any, args: any, context: MyContext){
+        async feed(_, args, context){
             let where: Prisma.LinkWhereInput = args.filter
             ? {
                 OR: [
@@ -20,13 +24,14 @@ export const postsResolver = {
                 where = { ...where, createdAt: { lt: date }};
             }
            
-            const orderBy: any = { createdAt: 'desc' };
+            const orderBy: Prisma.Enumerable<Prisma.LinkOrderByWithRelationInput> =
+                { createdAt: 'desc' };
             const take = Number(args.take);
             const params = {
                 where, 
                 orderBy, 
                 take: take + 1, 
-                skip: args.skip,
+                skip: args.skip ? Number(args.skip) : 0
             };
             let hasMore = true;
             const posts = await context.prisma.link.findMany(params);
@@ -38,19 +43,13 @@ export const postsResolver = {
         }
     },
     Mutation: {
-        async createPost(_: any, args: any, context: MyContext) {
+        async createPost(_, args, context) {
             isAuth(context);
             let newPost;
             try {
                 newPost = await context.prisma.link.create({
                     data: {
                         ...args, 
-                        // description: args.description,
-                        // musicUrl: args.musicUrl,
-                        // imageLink: args.imageLink,
-                        // deleteHash: args.deleteHash,
-                        // lat: args.lat,
-                        // lng: args.lng,
                         postedById: context.userId as number }
                 }); 
             } catch (e: any) {
@@ -68,7 +67,7 @@ export const postsResolver = {
             }            
             return newPost;
         },
-        async deletePost(_: any, args: any, context: MyContext) {
+        async deletePost(_, args, context) {
             isAuth(context);
             let postDeleted;
             try {
@@ -81,33 +80,30 @@ export const postsResolver = {
                 DELETE_POST,
                 { postDeleted: { postId: args.id, userId: context.userId }}
             );
-            return postDeleted;
+            return postDeleted.id;
         },
-        async vote(_: any, args: any, context: MyContext) {
+        async vote(_, args, context) {
             isAuth(context);
-            let value;
+            const { delta } = args;
             try {
-                const updoot = await context.prisma.updoot.findUnique({
-                    where: {
-                        postId_userId: { postId: args.postId, userId: context.userId as number }
-                    }
-                });
-                if (updoot) {
-                    if (updoot.value === args.value) return false;
+                // voting is the same as prev - nothing to do
+                if (!delta) return false;
+
+                // previous voting exist, change to opposite
+                if (delta === 2 || delta === -2)
                     await context.prisma.updoot.update({
                         where: {
                             postId_userId: { postId: args.postId, userId: context.userId as number }
                         },
-                        data: { value: args.value }
+                        data: { value: { increment: delta }}
                     });
-                    value = 2*args.value;
-                } else {
+                // user for this post votes first time    
+                else {
                     await context.prisma.updoot.create({ data: {
                         postId: args.postId, 
                         userId: context.userId as number,
-                        value: args.value 
+                        value: delta 
                     }});
-                    value = args.value;
                 }                   
             } catch (e: any) {
                 console.log('votePostError: ', e.message);
@@ -115,7 +111,7 @@ export const postsResolver = {
             }
 
             await context.pubsub.publish(VOTE_POST, {
-                postVoted: { postId: args.postId, value, userId: context.userId }
+                postVoted: { postId: args.postId, delta, userId: context.userId }
             });
             return true;
         },
@@ -134,12 +130,14 @@ export const postsResolver = {
     },
 
     Link: {
-        async postedBy(parent: Link, _: any, context: MyContext) {
-            return context.prisma.user.findUnique({
+        async postedBy(parent, _, context) {
+            const user = await context.prisma.user.findUnique({
                 where: { id: parent.postedById as number }
-            })
+            });
+            if (!user) throw new Error('Post w/o owner');
+            return user; 
         },
-        async votesUp(parent: Link, _: any, context: MyContext) {
+        async votesUp(parent, _, context) {
             const count = await context.prisma.updoot.count({
                 where: {
                     postId: parent.id,
@@ -148,7 +146,7 @@ export const postsResolver = {
             });
             return count ? count : 0; 
         },
-        async votesDown(parent: Link, _: any, context: MyContext) {
+        async votesDown(parent, _, context) {
             const count = await context.prisma.updoot.count({
                 where: {
                     postId: parent.id,
@@ -157,7 +155,7 @@ export const postsResolver = {
             });
             return count ? count : 0; 
         },
-        async voteValue(parent: Link, _: any, context: MyContext) {
+        async voteValue(parent, _, context) {
             if (!context.userId) return 0;
             const updoot = await context.prisma.updoot.findUnique({
                 where: {
@@ -166,6 +164,15 @@ export const postsResolver = {
                 select: { value: true }
             });
             return updoot ? updoot.value : 0;
-        }
-    }
-}
+        },
+    },
+};
+
+export const postsModule = createModule({
+    id: 'posts-module',
+    dirname: __dirname,
+    typeDefs: loadFilesSync(
+        join(resolve(), 'src/modules/post/post.graphql'),
+    ),
+    resolvers
+});

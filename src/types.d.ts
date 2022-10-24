@@ -2,12 +2,12 @@ import { PrismaClient } from "@prisma/client";
 import { Request } from "express";
 import { PubSub } from "graphql-subscriptions";
 
-export type MyContext = {
-    req?: Request;
-    prisma: PrismaClient;
-    userId: number | null;
-    pubsub: PubSub;
-};
+// export type MyContext = {
+//     req?: Request;
+//     prisma: PrismaClient;
+//     userId: number | null;
+//     pubsub: PubSub;
+// };
 
 declare module 'jsonwebtoken' {
     interface JwtPayload {
@@ -20,6 +20,17 @@ declare module 'express-session' {
       messages: string[];
     }
 };
+
+declare global {
+    namespace GraphQLModules {
+      interface GlobalContext {
+        req?: Request;
+        prisma: PrismaClient;
+        userId: number | null;
+        pubsub: PubSub;  
+      }
+    }
+  }
 
 // declare global {
 //     namespace Express {      

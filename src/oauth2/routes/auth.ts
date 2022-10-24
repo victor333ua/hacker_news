@@ -1,6 +1,6 @@
 import express from 'express'
 import passport from 'passport';
-import { onlinePublish } from '../../resolvers/users';
+import { onlinePublish } from '../../modules/user/users';
 import { createToken } from './../../utils/token';
 import {pubsub, prisma } from '../../index'
 

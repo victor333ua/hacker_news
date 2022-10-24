@@ -1,0 +1,61 @@
+# scalar Date
+
+type Query {
+  feed(filter: String, skip: Int, take: Int, cursor: String): LinksPayload!,
+}
+
+type Mutation {
+  createPost(description: String!, musicUrl: String, imageLink: String,
+  deleteHash: String, lat: Float, lng: Float): Link!
+  deletePost(id: Int!): Int!
+  vote(delta: Int!, postId: Int!): Boolean!
+}
+
+type Subscription {
+  postCreated: PostCreatedPayload!
+  postDeleted: PostDeletedPayload!
+  postVoted: VotePayload!
+}
+
+type Link {
+  id: Int!
+  createdAt: String!
+  description: String!
+  musicUrl: String
+  postedById: Int!
+  postedBy: User!
+  votesUp: Int!
+  votesDown: Int!
+  voteValue: Int!
+  imageLink: String
+  deleteHash: String
+  lat: Float
+  lng: Float
+}
+
+type LinksPayload {
+  posts: [Link!]!
+  hasMore: Boolean!
+}
+
+type Updoot {
+  postId: Int!
+  userId: Int!
+  value:  Int!
+}
+
+type VotePayload {
+  delta: Int!
+  postId: Int!
+  userId: Int!
+}
+
+type PostCreatedPayload {
+  newPost: Link!
+  userId: Int!
+}
+
+type PostDeletedPayload {
+  postId: Int!
+  userId: Int!
+}

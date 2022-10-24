@@ -1,24 +1,25 @@
 import { ApolloServer } from 'apollo-server-express';
 import express from 'express';
-import fs from 'fs';
-import path from 'path';
 import { PrismaClient } from '@prisma/client';
-import { usersResolver } from './resolvers/users';
-import { postsResolver } from './resolvers/posts';
-import { merge } from 'lodash';
+import { usersModule } from './modules/user/users';
+import { postsModule } from './modules/post/posts';
 import { getUserId } from './utils/getUserId';
-import { makeExecutableSchema } from '@graphql-tools/schema';
-//import { composeResolvers } from '@graphql-tools/resolvers-composition';
+// import fs from 'fs';
+// import path from 'path';
+// import { merge } from 'lodash';
+// import { makeExecutableSchema } from '@graphql-tools/schema';
+// import { composeResolvers } from '@graphql-tools/resolvers-composition';
 import { PubSub } from 'graphql-subscriptions';
 import ws from 'ws';
 import { useServer } from 'graphql-ws/lib/use/ws';
 import cors from 'cors';
 import { createServer } from 'http';
-import { MyContext } from './types';
 import { getUserIdFromCtx } from './utils/getUserIdFromWsCtx';
 import passport from 'passport';
 import './oauth2/passport';
 import authRoute from './oauth2/routes/auth';
+import { createApplication } from 'graphql-modules';
+
 // import cookieParser from 'cookie-parser';
 
 export const pubsub = new PubSub();
@@ -50,16 +51,26 @@ const init = async () => {
   // app.set("trust proxy", 1);
 // --------------------------------------------------------
 // ----- Apollo Server ------------------------------------
-  const typeDefs = fs.readFileSync(
-    path.join(path.resolve(), 'src/schema.graphql'),
-    'utf8'
-  );
-  const resolvers = merge(usersResolver, postsResolver);
-  const schema = makeExecutableSchema({ typeDefs, resolvers });
+
+  // const typeDefs = fs.readFileSync(
+  //   path.join(path.resolve(), 'src/schema.graphql'),
+  //   'utf8'
+  // );
+  // const resolvers = merge(usersResolver, postsResolver);
+  // const schema = makeExecutableSchema({ typeDefs, resolvers });
+
+  const application = createApplication({
+    modules: [postsModule, usersModule]
+  });
+  const schema = application.schema;
+  const executor = application.createApolloExecutor();
+  const subscribe = application.createSubscription();
+  const execute = application.createExecution();
 
   const apolloServer = new ApolloServer({
-      schema,     
-      context: ({ req }): MyContext => {
+      schema,
+      executor,     
+      context: ({ req }) => {
         const userId = req && req.headers.authorization
         ? getUserId(req.headers.authorization)
         : null;
@@ -70,6 +81,7 @@ const init = async () => {
           userId
         };
       },
+      // introspection: false
   });
 
   await apolloServer.start();
@@ -80,37 +92,41 @@ const init = async () => {
   });
 // ---------------------------------------------------------
   const httpServer = createServer(app);
+
+  const wsServer = new ws.Server({
+    server: httpServer,
+    path: '/ws',
+  });
+  useServer({ 
+    schema,
+    subscribe,
+    execute,
+    context: (ctx) => ({ prisma, pubsub, userId: getUserIdFromCtx(ctx) }),
+    onConnect: (ctx) => {
+      console.log('Connect');
+    },
+    onDisconnect: (ctx) => {
+      console.log('Disconnect');
+    },
+    onSubscribe: (ctx, msg) => {
+      // console.log('Subscribe');
+    },     
+    onNext: (ctx, msg, args, result) => {
+      // console.debug('Next', { ctx, msg, args, result });
+      // const objPayload: any = Object.values(msg.payload.data as {})[0];
+      // console.debug('Next: payload',  objPayload);
+      // console.debug('Next: userId', objPayload.userId);
+      // we don't have userId here???
+    },
+    onError: (ctx, msg, errors) => {
+        console.error('Error');
+    },
+    onComplete: (ctx, msg) => {
+        // console.log('Complete');
+    }, 
+  }, wsServer); 
+
   httpServer.listen(process.env.PORT, () => {
-    const wsServer = new ws.Server({
-      server: httpServer,
-      path: '/ws',
-    });
-    useServer({ 
-      schema,
-      context: (ctx) => ({ prisma, pubsub, userId: getUserIdFromCtx(ctx) }),
-      onConnect: (ctx) => {
-        console.log('Connect');
-      },
-      onDisconnect: (ctx) => {
-        console.log('Disconnect');
-      },
-      onSubscribe: (ctx, msg) => {
-        // console.log('Subscribe');
-      },     
-      onNext: (ctx, msg, args, result) => {
-        // console.debug('Next', { ctx, msg, args, result });
-        // const objPayload: any = Object.values(msg.payload.data as {})[0];
-        // console.debug('Next: payload',  objPayload);
-        // console.debug('Next: userId', objPayload.userId);
-        // we don't have userId here???
-      },
-      onError: (ctx, msg, errors) => {
-          console.error('Error');
-      },
-      onComplete: (ctx, msg) => {
-          // console.log('Complete');
-      }, 
-    }, wsServer); 
     console.log(`server started on localhost:${process.env.PORT}`);
   })  
 };

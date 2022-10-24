@@ -7,11 +7,9 @@ function hasOwnProperty<X extends {}, Y extends PropertyKey>
 };
 
 export const publishWithoutMe = (subscr_name: string) => {
-    return  withFilter(
-        (_: any, __: any, context) => 
-            context.pubsub.asyncIterator(subscr_name),
-        
-        (payload: any, __: any, context) => {
+    const resolverFn = withFilter(
+        (_, __, context) => context.pubsub.asyncIterator(subscr_name),
+        (payload, __, context) => {
 // here context from ws, has been made for every subscriber
             const userId = context.userId;
             let userIdFromHttp;
@@ -19,10 +17,18 @@ export const publishWithoutMe = (subscr_name: string) => {
                  if (val && typeof val === "object" && hasOwnProperty(val, 'userId')) 
                     userIdFromHttp = val.userId;
             });
-           
             // console.log('userId, userIdFromHttp = ',
             //     [userId, userIdFromHttp]);
             return userIdFromHttp !== userId;         
         }
+    );
+    return (
+        (_: any, __: any, context: any) => {
+            return {
+                [Symbol.asyncIterator]() {
+                    return resolverFn(_, __, context) ;
+                  },
+            }
+        }  
     ) 
 };

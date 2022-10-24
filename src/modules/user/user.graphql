@@ -1,0 +1,45 @@
+type Query {
+  user(id: Int!): User,
+  allUsers: [User],
+  me: User,
+  imgur: ImgurPayload!,
+  getPosts(userId: Int!): [Link]
+}
+
+type Mutation {
+  signup(email: String!, password: String!): AuthPayload!
+  login(email: String!, password: String!): AuthPayload!
+  logout: Boolean!,
+  logWithValidToken: Boolean!,
+  changeAvatar(imageLink: String!, deletehash: String!): Boolean!
+}
+
+type Subscription {
+  userIsOnline: IsOnlinePayload!
+}
+
+type User {
+  id:    Int!
+  name:  String
+  email: String!
+  imageLink: String
+  deletehash: String
+  lastTime: String
+  links: [Link]
+}
+
+type AuthPayload {
+  user: User!
+  token: String!
+}
+
+type IsOnlinePayload {
+  userId: Int!
+  lastTime: String
+}
+
+type ImgurPayload {
+  isAuthed: Boolean!
+  clientId: String!
+  accessToken: String!
+}
