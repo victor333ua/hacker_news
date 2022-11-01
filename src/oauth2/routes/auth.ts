@@ -16,7 +16,7 @@ const cb = async (res: any, err: any, user: {id: number}, info: any) => {
         // res.cookie('tokenOauth', token);
         await onlinePublish({ pubsub, prisma, userId: null }, id, null);
     }
-    res.redirect(`${process.env.CORS_ORIGIN}/oauth2Login`+
+    res.redirect(`${process.env.CORS_ORIGIN}`+
         `?error=${errorMessage}&token=${token}`);   
 };  
 

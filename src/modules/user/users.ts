@@ -8,7 +8,6 @@ import { createModule } from 'graphql-modules';
 import { UserModule } from './generated-types/module-types';
 import { join, resolve } from 'path';
 import { loadFilesSync } from '@graphql-tools/load-files';
-import { LinkasLinkModel } from 'node_modules/.prisma/client/index';
 
 export const onlinePublish = async (
     context: GraphQLModules.GlobalContext,
