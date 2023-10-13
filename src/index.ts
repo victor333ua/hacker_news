@@ -127,7 +127,7 @@ const init = async () => {
   }, wsServer); 
 
   httpServer.listen(process.env.PORT, () => {
-    console.log(`server started on localhost:${process.env.PORT}`);
+    console.log(`server started on port:${process.env.PORT}`);
   })  
 };
 

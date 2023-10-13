@@ -19,8 +19,8 @@ WORKDIR /app
 COPY --from=build /app .
 #this files are neccessary for prisma
 COPY --from=build /lib/x86_64-linux-gnu/libz.so.1 /lib/libz.so.1
-COPY .env.docker .env
-ENV CORS_ORIGIN=http://upper.com:3000 PORT=4000
+# COPY .env.docker .env
+# ENV CORS_ORIGIN=http://upper.com:3000 PORT=4000
 
 #EXPOSE 4000 connect to arbitrary port in the host, docker ps - we can see to which
 #VOLUME /prisma/db create anonimus volume, it's not convenient

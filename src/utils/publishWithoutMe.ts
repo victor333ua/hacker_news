@@ -32,3 +32,16 @@ export const publishWithoutMe = (subscr_name: string) => {
         }  
     ) 
 };
+// Subscription: {
+//     messageAdded: {
+//       subscribe: withFilter(
+//         () => pubsub.asyncIterator(MESSAGE_ADDED_TOPIC),
+//         (payload, args) => {
+//           return Boolean(
+//             args.groupIds &&
+//             ~args.groupIds.indexOf(payload.messageAdded.groupId) &&
+// don't send to user creating message
+//             args.userId !== payload.messageAdded.userId,
+// args here from subscription parameters from client (http userId),
+// we get it from http ctx in resolver
+// https://medium.com/react-native-training/building-chatty-part-6-graphql-subscriptions-b54df7d63e27
