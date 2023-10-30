@@ -3,7 +3,7 @@ import { Extra } from 'graphql-ws/lib/use/ws';
 import { getUserId } from "./getUserId";
 
 export const getUserIdFromCtx =
-    (ctx: Context<Extra & Partial<Record<PropertyKey, never>>>) =>  {
-        const auth = ctx.connectionParams?.authorization as string;
-        return auth ? getUserId(auth) : null;
+    (ctx: any) =>  {
+        const auth = ctx.connectionParams?.authorization;
+        return auth ? getUserId(auth as string) : null;
     };

@@ -48,7 +48,7 @@ router.get(process.env.GITHUB_URI_REDIRECT as string, (req, res, next) => {
     passport.authenticate('github', {
             session: false
         }, 
-        (err, user, info) => {
+        (err: any, user: any, info: any) => {
             (async () => await cb(res, err, user, info))();
         }        
     )(req, res, next)
